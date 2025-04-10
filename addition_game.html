@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Column Addition Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for game elements */
+        body {
+            font-family: 'Inter', sans-serif; /* Use Inter font */
+        }
+        .question-box {
+            display: inline-block; /* Align numbers vertically */
+            text-align: right;
+            font-family: 'monospace'; /* Use monospace for number alignment */
+            font-size: 1.5rem; /* Larger font for numbers */
+            line-height: 1.2;
+            padding: 1rem;
+            border: 1px solid #e2e8f0; /* light gray border */
+            border-radius: 0.5rem; /* rounded corners */
+            background-color: #f8fafc; /* very light gray background */
+            margin-bottom: 1rem; /* space below question */
+            min-width: 80px; /* Minimum width for alignment */
+        }
+        .plus-sign {
+            margin-right: 0.5rem; /* Space before the number */
+        }
+        .line {
+            border-bottom: 2px solid #000; /* Black line for addition */
+            margin-top: 0.25rem;
+            margin-bottom: 0.25rem;
+        }
+        .answer-input {
+            font-family: 'monospace';
+            font-size: 1.5rem;
+            text-align: right;
+            width: 100%; /* Make input fill the container width */
+            border: 1px solid #cbd5e1; /* gray border */
+            border-radius: 0.375rem; /* slightly rounded */
+            padding: 0.25rem 0.5rem; /* padding */
+            margin-top: 0.5rem; /* space above input */
+        }
+        /* Style for feedback messages */
+        .feedback {
+            font-weight: bold;
+            margin-top: 0.5rem;
+        }
+        .correct {
+            color: #16a34a; /* green */
+        }
+        .incorrect {
+            color: #dc2626; /* red */
+        }
+        /* Reward animation styles */
+        .reward-container {
+            position: fixed; /* Position fixed to overlay */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* Hide overflowing elements */
+            z-index: 50; /* Ensure it's on top */
+            pointer-events: none; /* Allow clicks through */
+            display: none; /* Hidden by default */
+        }
+        .reward-element {
+            position: absolute;
+            bottom: -100px; /* Start below the screen */
+            font-size: 2rem; /* Size of emojis */
+            animation: floatUp 8s linear infinite;
+        }
+        /* Keyframes for floating animation */
+        @keyframes floatUp {
+            0% {
+                bottom: -100px;
+                opacity: 1;
+                transform: translateX(0);
+            }
+            50% {
+                transform: translateX(20px); /* Add some horizontal drift */
+            }
+            100% {
+                bottom: 110%; /* Float up past the top */
+                opacity: 0.5;
+                transform: translateX(-20px);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-100 to-purple-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg w-full max-w-2xl text-center">
+        <h1 class="text-2xl md:text-3xl font-bold text-blue-700 mb-6">Column Addition Challenge!</h1>
+        <p class="text-gray-600 mb-6">Add the numbers in each column. Good luck!</p>
+
+        <div id="questions-container" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            </div>
+
+        <button id="check-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg text-lg transition duration-200 shadow-md mb-4">
+            Check My Answers!
+        </button>
+
+        <div id="results-area" class="mt-4 text-lg font-semibold"></div>
+
+        <footer class="mt-8 border-t pt-4 text-center text-gray-500 text-sm">
+            Visit us on Facebook:
+            <a href="https://www.facebook.com/ABCtrainingEDU" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">
+                ABCtrainingEDU
+            </a>
+        </footer>
+    </div>
+
+    <div id="reward-container" class="reward-container">
+        </div>
+
+    <script>
+        // --- Game Data ---
+        const questions = [
+            { num1: 12, num2: 23 },
+            { num1: 34, num2: 15 },
+            { num1: 41, num2: 37 },
+            { num1: 56, num2: 22 },
+            { num1: 63, num2: 14 },
+            { num1: 28, num2: 51 },
+            { num1: 75, num2: 13 },
+            { num1: 44, num2: 44 },
+        ];
+
+        // --- DOM Elements ---
+        const questionsContainer = document.getElementById('questions-container');
+        const checkButton = document.getElementById('check-button');
+        const resultsArea = document.getElementById('results-area');
+        const rewardContainer = document.getElementById('reward-container');
+
+        // --- Functions ---
+
+        // Function to display questions
+        function displayQuestions() {
+            questionsContainer.innerHTML = ''; // Clear previous questions
+            questions.forEach((q, index) => {
+                const correctAnswer = q.num1 + q.num2;
+                const questionDiv = document.createElement('div');
+                questionDiv.classList.add('flex', 'flex-col', 'items-center'); // Center content
+                questionDiv.innerHTML = `
+                    <div class="question-box">
+                        <div> ${String(q.num1).padStart(2, ' ')}</div>
+                        <div><span class="plus-sign">+</span>${String(q.num2).padStart(2, ' ')}</div>
+                        <div class="line"></div>
+                        <input type="number" id="answer-${index}" class="answer-input" data-correct="${correctAnswer}" min="0" max="198">
+                    </div>
+                    <div id="feedback-${index}" class="feedback text-sm h-5"></div> `;
+                questionsContainer.appendChild(questionDiv);
+            });
+        }
+
+        // Function to check answers
+        function checkAnswers() {
+            let score = 0;
+            let allCorrect = true;
+
+            questions.forEach((q, index) => {
+                const inputElement = document.getElementById(`answer-${index}`);
+                const feedbackElement = document.getElementById(`feedback-${index}`);
+                const userAnswer = parseInt(inputElement.value, 10);
+                const correctAnswer = parseInt(inputElement.dataset.correct, 10);
+
+                // Clear previous feedback
+                feedbackElement.textContent = '';
+                feedbackElement.classList.remove('correct', 'incorrect');
+                inputElement.classList.remove('border-green-500', 'border-red-500'); // Reset border color
+
+                if (!isNaN(userAnswer)) { // Check if input is a number
+                    if (userAnswer === correctAnswer) {
+                        score++;
+                        feedbackElement.textContent = 'Correct!';
+                        feedbackElement.classList.add('correct');
+                        inputElement.classList.add('border-green-500'); // Green border for correct
+                    } else {
+                        feedbackElement.textContent = `Oops! Try again.`;
+                        feedbackElement.classList.add('incorrect');
+                        inputElement.classList.add('border-red-500'); // Red border for incorrect
+                        allCorrect = false;
+                    }
+                } else {
+                    feedbackElement.textContent = 'Enter a number';
+                    feedbackElement.classList.add('incorrect');
+                     inputElement.classList.add('border-red-500'); // Red border for empty/invalid
+                    allCorrect = false; // Mark as not all correct if any answer is missing
+                }
+            });
+
+            // Display final score
+            resultsArea.textContent = `You got ${score} out of ${questions.length} correct!`;
+
+            // Trigger reward if all answers are correct
+            if (allCorrect && score === questions.length) {
+                resultsArea.textContent += ' 🎉 Wow! Perfect Score!';
+                triggerReward();
+            } else {
+                hideReward(); // Hide reward if not perfect score
+            }
+        }
+
+        // Function to trigger reward animation
+        function triggerReward() {
+            rewardContainer.innerHTML = ''; // Clear previous rewards
+            rewardContainer.style.display = 'block'; // Show the container
+
+            const emojis = ['🎈', '🪨', '✨', '🌟', '🎊']; // Rocks, balloons, and sparkles
+            for (let i = 0; i < 30; i++) { // Create 30 reward elements
+                const rewardElement = document.createElement('div');
+                rewardElement.classList.add('reward-element');
+                rewardElement.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+                rewardElement.style.left = `${Math.random() * 100}%`; // Random horizontal position
+                rewardElement.style.animationDelay = `${Math.random() * 5}s`; // Random start delay
+                rewardElement.style.animationDuration = `${5 + Math.random() * 5}s`; // Random duration
+                rewardContainer.appendChild(rewardElement);
+            }
+        }
+
+        // Function to hide reward animation
+        function hideReward() {
+            rewardContainer.style.display = 'none';
+            rewardContainer.innerHTML = ''; // Clear elements
+        }
+
+        // --- Event Listeners ---
+        checkButton.addEventListener('click', checkAnswers);
+
+        // --- Initial Setup ---
+        displayQuestions(); // Display questions when the page loads
+
+    </script>
+
+</body>
+</html>
